@@ -1,6 +1,6 @@
 # Basic Reason Template
 
-Hello! This project allows you to quickly get started with Reason and BuckleScript. If you wanted a more sophisticated version, try the `react` template (`bsb -theme react -init .`).
+Hello! Decided to learn ReasonML and got inspired by https://www.youtube.com/watch?v=Y-wrJLRjPAY&feature=youtu.be to do the advent of code puzze game. 
 
 # Build
 ```
