@@ -1,0 +1,20 @@
+{
+  "name": "advent-of-code",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "bsb -make-world",
+    "start": "bsb -make-world -w",
+    "clean": "bsb -clean-world",
+    "bs:clean": "bsb -clean-world",
+    "bs:build": "bsb -make-world",
+    "bs:watch": "bsb -make-world -w"
+  },
+  "keywords": [
+    "BuckleScript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "bs-platform": "^7.0.1"
+  }
+}
