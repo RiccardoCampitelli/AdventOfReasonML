@@ -1,7 +1,7 @@
 let input = [|
   1,
-  12,
-  2,
+  0,
+  0,
   3,
   1,
   1,
@@ -148,14 +148,10 @@ let input = [|
 
 let intCode = (array: array(int)) => {
   let length = Array.length(input);
-    Js.log(length)
   let index = ref(0);
 
   while (index^ <= length - 4) {
     let currentItem = array[index^];
-    Js.log(index^)
-    // Js.log(currentItem)
-
 
     let element1Index = array[index^ + 1];
     let element2Index = array[index^ + 2];
@@ -175,14 +171,47 @@ let intCode = (array: array(int)) => {
     | 99 => index := length
     | _ => ()
     };
-
-    
-
   };
 
-
-
-  Js.log(array[0]);
+  array[0];
 };
 
-intCode(input) //Result Day 2 Part 1
+let generateInputArray = (inputArray: array(int), noun: int, verb: int) => {
+  let resultArray = Array.copy(inputArray);
+
+  resultArray[1] = noun;
+  resultArray[2] = verb;
+
+  resultArray;
+};
+
+// generateInputArray(input, 12,2) //Part 1 result
+//     -> intCode
+//     -> Js.log
+
+let target = 19690720;
+
+let findPartTwoAnswer = (inputArray: array(int)): (int, int) => {
+  let indexA = ref(0);
+  let indexB = ref(0);
+  let result = ref((0, 0));
+
+  while (indexA^ <= 99) {
+    indexB := 0;
+
+    while (indexB^ <= 99) {
+      let value = generateInputArray(inputArray, indexA^, indexB^)->intCode;
+
+      if (value === target) {
+        result := (indexA^, indexB^);
+        indexA := 99;
+        indexB := 99;
+      };
+      indexB := indexB^ + 1;
+    };
+    indexA := indexA^ + 1;
+  };
+  result^;
+};
+
+Js.log(findPartTwoAnswer(input)); // Part 2 result
