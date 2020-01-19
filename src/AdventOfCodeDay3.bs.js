@@ -3,6 +3,7 @@
 
 var $$Array = require("bs-platform/lib/js/array.js");
 var $$String = require("bs-platform/lib/js/string.js");
+var Caml_array = require("bs-platform/lib/js/caml_array.js");
 var Caml_format = require("bs-platform/lib/js/caml_format.js");
 
 var inputA = /* array */[
@@ -630,7 +631,7 @@ function getPathNode(node) {
         dir = /* U */0;
         break;
     default:
-      dir = /* SomethingWentWrong */4;
+      dir = /* UnknownDirection */4;
   }
   var amount = Caml_format.caml_int_of_string($$String.sub(node, 1, node.length - 1 | 0));
   return {
@@ -639,13 +640,303 @@ function getPathNode(node) {
         };
 }
 
-var pathNodeA = $$Array.map(getPathNode, inputA);
+var pathNodesA = $$Array.map(getPathNode, inputA);
 
-var pathNodeB = $$Array.map(getPathNode, inputB);
+var pathNodesB = $$Array.map(getPathNode, inputB);
+
+function moveToPathNode(param, pathNode) {
+  var y = param[1];
+  var x = param[0];
+  var match = pathNode.dir;
+  switch (match) {
+    case /* U */0 :
+        return /* tuple */[
+                x + pathNode.amount | 0,
+                y
+              ];
+    case /* D */1 :
+        return /* tuple */[
+                x - pathNode.amount | 0,
+                y
+              ];
+    case /* L */2 :
+        return /* tuple */[
+                x,
+                y - pathNode.amount | 0
+              ];
+    case /* R */3 :
+        return /* tuple */[
+                x,
+                y + pathNode.amount | 0
+              ];
+    case /* UnknownDirection */4 :
+        return /* tuple */[
+                x,
+                y
+              ];
+    
+  }
+}
+
+function getPath(pathNodes) {
+  var length = pathNodes.length;
+  var positions = /* array */[/* tuple */[
+      0,
+      0
+    ]];
+  var index = 0;
+  while(index < length) {
+    var latestPosition = Caml_array.caml_array_get(positions, positions.length - 1 | 0);
+    var nextPathNode = Caml_array.caml_array_get(pathNodes, index);
+    positions = $$Array.append(positions, /* array */[moveToPathNode(latestPosition, nextPathNode)]);
+    index = index + 1 | 0;
+  };
+  return positions;
+}
+
+var pathA = getPath(pathNodesA);
+
+var pathB = getPath(pathNodesB);
+
+function getAxis(section) {
+  var match = section.startNode;
+  var x1 = match[0];
+  var match$1 = section.endNode;
+  var x2 = match$1[0];
+  if (x1 !== x2) {
+    return {
+            ax: /* X */0,
+            delta: /* tuple */[
+              match[1],
+              match$1[1]
+            ]
+          };
+  } else {
+    return {
+            ax: /* Y */1,
+            delta: /* tuple */[
+              x1,
+              x2
+            ]
+          };
+  }
+}
+
+function isInbetween(value, param) {
+  var y = param[1];
+  var x = param[0];
+  var isIn = value > x && value < y;
+  var isLess = value < x;
+  var isMore = value > y;
+  if (isIn) {
+    return 0;
+  } else if (isLess) {
+    return -1;
+  } else if (isMore) {
+    return 1;
+  } else {
+    return 99;
+  }
+}
+
+function findCommon(param, param$1) {
+  var y2 = param$1[1];
+  var y1 = param$1[0];
+  var x2 = param[1];
+  var x1 = param[0];
+  var match = isInbetween(x1, /* tuple */[
+        y1,
+        y2
+      ]);
+  var match$1 = isInbetween(x2, /* tuple */[
+        y1,
+        y2
+      ]);
+  if (match !== -1) {
+    if (match !== 0) {
+      return /* tuple */[
+              0,
+              0
+            ];
+    } else if (match$1 !== 0) {
+      if (match$1 !== 1) {
+        return /* tuple */[
+                0,
+                0
+              ];
+      } else {
+        return /* tuple */[
+                x1,
+                y2
+              ];
+      }
+    } else {
+      return /* tuple */[
+              x1,
+              x2
+            ];
+    }
+  } else if (match$1 !== 0) {
+    return /* tuple */[
+            0,
+            0
+          ];
+  } else {
+    return /* tuple */[
+            y1,
+            x2
+          ];
+  }
+}
+
+function findIntersectionRange(sectionA, sectionB) {
+  var axisA = getAxis(sectionA);
+  var axisB = getAxis(sectionB);
+  var match = axisA.ax;
+  switch (match) {
+    case /* X */0 :
+        var match$1 = axisA.delta;
+        var match$2 = axisB.delta;
+        var match$3 = sectionA.endNode;
+        return {
+                ax: /* X */0,
+                staticValue: match$3[0],
+                range: findCommon(/* tuple */[
+                      match$1[0],
+                      match$1[1]
+                    ], /* tuple */[
+                      match$2[0],
+                      match$2[1]
+                    ])
+              };
+    case /* Y */1 :
+        var match$4 = axisA.delta;
+        var match$5 = axisB.delta;
+        var match$6 = sectionA.endNode;
+        return {
+                ax: /* Y */1,
+                staticValue: match$6[1],
+                range: findCommon(/* tuple */[
+                      match$4[0],
+                      match$4[1]
+                    ], /* tuple */[
+                      match$5[0],
+                      match$5[1]
+                    ])
+              };
+    case /* NA */2 :
+        return {
+                ax: /* NA */2,
+                staticValue: 0,
+                range: /* tuple */[
+                  0,
+                  0
+                ]
+              };
+    
+  }
+}
+
+function findIntersectionPoint(sectionA, sectionB) {
+  var axisA = getAxis(sectionA);
+  var axisB = getAxis(sectionB);
+  var match = axisA.ax;
+  switch (match) {
+    case /* X */0 :
+        var match$1 = sectionA.endNode;
+        var x = match$1[0];
+        var match$2 = sectionB.endNode;
+        var y = match$2[1];
+        var match$3 = axisA.delta;
+        var match$4 = axisB.delta;
+        var match$5 = isInbetween(x, /* tuple */[
+              match$4[0],
+              match$4[1]
+            ]) === 0;
+        var intersectionX = match$5 ? x : undefined;
+        var match$6 = isInbetween(y, /* tuple */[
+              match$3[0],
+              match$3[1]
+            ]) === 0;
+        var intersectionY = match$6 ? y : undefined;
+        if (intersectionX !== undefined && intersectionY !== undefined) {
+          return {
+                  x: intersectionX,
+                  y: intersectionY
+                };
+        } else {
+          return {
+                  x: 0,
+                  y: 0
+                };
+        }
+    case /* Y */1 :
+        var match$7 = sectionA.endNode;
+        var y$1 = match$7[1];
+        var match$8 = sectionB.endNode;
+        var x$1 = match$8[0];
+        var match$9 = axisA.delta;
+        var match$10 = axisB.delta;
+        var match$11 = isInbetween(x$1, /* tuple */[
+              match$10[0],
+              match$10[1]
+            ]) === 0;
+        var intersectionX$1 = match$11 ? x$1 : undefined;
+        var match$12 = isInbetween(y$1, /* tuple */[
+              match$9[0],
+              match$9[1]
+            ]) === 0;
+        var intersectionY$1 = match$12 ? y$1 : undefined;
+        if (intersectionX$1 !== undefined && intersectionY$1 !== undefined) {
+          return {
+                  x: intersectionX$1,
+                  y: intersectionY$1
+                };
+        } else {
+          return {
+                  x: 0,
+                  y: 0
+                };
+        }
+    case /* NA */2 :
+        return {
+                x: 0,
+                y: 0
+              };
+    
+  }
+}
+
+function getClosestIntersection(pathA, pathB) {
+  var length = pathA.length - 1 | 0;
+  var indexA = 0;
+  var indexB = 0;
+  while(indexA < length) {
+    indexB = 0;
+    while(indexB < length) {
+      indexB = indexB + 1 | 0;
+    };
+    indexA = indexA + 1 | 0;
+  };
+  return /* () */0;
+}
+
+var result = getClosestIntersection(pathA, pathB);
 
 exports.inputA = inputA;
 exports.inputB = inputB;
 exports.getPathNode = getPathNode;
-exports.pathNodeA = pathNodeA;
-exports.pathNodeB = pathNodeB;
-/* pathNodeA Not a pure module */
+exports.pathNodesA = pathNodesA;
+exports.pathNodesB = pathNodesB;
+exports.moveToPathNode = moveToPathNode;
+exports.getPath = getPath;
+exports.pathA = pathA;
+exports.pathB = pathB;
+exports.getAxis = getAxis;
+exports.isInbetween = isInbetween;
+exports.findCommon = findCommon;
+exports.findIntersectionRange = findIntersectionRange;
+exports.findIntersectionPoint = findIntersectionPoint;
+exports.getClosestIntersection = getClosestIntersection;
+exports.result = result;
+/* pathNodesA Not a pure module */

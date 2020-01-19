@@ -611,7 +611,7 @@ type direction =
   | D
   | L
   | R
-  | SomethingWentWrong;
+  | UnknownDirection;
 
 type pathNode = {
   dir: direction,
@@ -625,7 +625,7 @@ let getPathNode = (node: string) => {
     | "D" => D
     | "L" => L
     | "R" => R
-    | _ => SomethingWentWrong
+    | _ => UnknownDirection
     };
 
   let amount = node->String.sub(1, String.length(node) - 1)->int_of_string;
@@ -633,9 +633,256 @@ let getPathNode = (node: string) => {
   {dir, amount};
 };
 
+let pathNodesA = inputA->Array.map(getPathNode, _);
 
-let pathNodeA = inputA -> Array.map(getPathNode, _);
+let pathNodesB = inputB->Array.map(getPathNode, _);
 
-let  pathNodeB = inputB -> Array.map(getPathNode, _);
+let moveToPathNode = ((x: int, y: int), pathNode: pathNode) => {
+  switch (pathNode.dir) {
+  | U => (x + pathNode.amount, y)
+  | D => (x - pathNode.amount, y)
+  | L => (x, y - pathNode.amount)
+  | R => (x, y + pathNode.amount)
+  | _ => (x, y)
+  };
+};
 
+// Js.log(moveToPathNode((0,0), { dir: R, amount:  2}))
 
+// let pathA =
+//   Array.fold_left(
+//     (acc, el) =>
+//       Array.init(1, (_) => moveToPathNode(acc, el))->Array.append(positions),
+//     positions,
+//     pathNodesA,
+//   );
+// Js.log(pathA);
+
+let getPath = (pathNodes: array(pathNode)) => {
+  let length = Array.length(pathNodes);
+
+  let positions = ref([|(0, 0)|]);
+  let index = ref(0);
+
+  while (index^ < length) {
+    let latestPosition = positions^[Array.length(positions^) - 1];
+    let nextPathNode = pathNodes[index^];
+
+    positions :=
+      Array.append(
+        positions^,
+        [|moveToPathNode(latestPosition, nextPathNode)|],
+      );
+
+    index := index^ + 1;
+  };
+
+  positions^;
+};
+// Js.log(pathNodesA)
+// Js.log(getPath(pathNodesA)) // length : 302
+
+let pathA = getPath(pathNodesA);
+let pathB = getPath(pathNodesB);
+
+// Js.log(Array.length(pathB))
+
+// 00 01 02 03
+// 10 11 12 13
+// 20 21 22 23
+// 30 31 32 33
+//xy
+//11 to column that doesn't change is the one we check the other values by
+//31 ex: 1 is the axis (column) and range goes 1 to 3
+
+//20 to
+//22  ex: 2 is the axis (row) and it goes 0 to 2 intersecting at 21
+
+//xy
+//11
+//31
+
+//01
+//21 intersecting 21 11
+
+type pathSection = {
+  startNode: (int, int),
+  endNode: (int, int),
+};
+
+type axis =
+  | X
+  | Y
+  | NA;
+
+type moveBy = {
+  ax: axis,
+  delta: (int, int),
+};
+
+let getAxis = (section: pathSection): moveBy => {
+  let (x1, y1) = section.startNode;
+  let (x2, y2) = section.endNode;
+
+  let result =
+    if (x1 !== x2) {
+      let res = {ax: X, delta: (y1, y2)};
+      res;
+    } else {
+      let res = {ax: Y, delta: (x1, x2)};
+      res;
+    };
+  result;
+};
+
+let isInbetween = (value: int, (x: int, y: int)) => {
+  let isIn = value > x && value < y;
+  let isLess = value < x;
+  let isMore = value > y;
+
+  let result =
+    switch (isIn, isLess, isMore) {
+    | (true, _, _) => 0
+    | (_, true, _) => (-1)
+    | (_, _, true) => 1
+    | (_, _, _) => 99
+    };
+
+  result;
+};
+
+let findCommon = ((x1, x2), (y1, y2)) => {
+  let result =
+    switch (isInbetween(x1, (y1, y2)), isInbetween(x2, (y1, y2))) {
+    | ((-1), 0) => (y1, x2)
+    | (0, 0) => (x1, x2)
+    | (0, 1) => (x1, y2)
+    | (_, _) => (0, 0)
+    };
+
+  result;
+};
+
+type intersectionResponse = {
+  ax: axis,
+  staticValue: int,
+  range: (int, int),
+};
+
+type point = {
+  x: int,
+  y: int,
+};
+
+let findIntersectionRange = (sectionA: pathSection, sectionB: pathSection) => {
+  let axisA = getAxis(sectionA);
+  let axisB = getAxis(sectionB);
+  let result =
+    switch (axisA.ax) {
+    | X =>
+      // delta is y
+      let (startA, endA) = axisA.delta;
+      let (startB, endB) = axisB.delta;
+
+      let (x, _) = sectionA.endNode;
+
+      let res = {
+        ax: X,
+        staticValue: x,
+        range: findCommon((startA, endA), (startB, endB)),
+      };
+      res;
+
+    | Y =>
+      //delta is x
+      let (startA, endA) = axisA.delta;
+      let (startB, endB) = axisB.delta;
+
+      let (_, y) = sectionA.endNode;
+
+      let res = {
+        ax: Y,
+        staticValue: y,
+        range: findCommon((startA, endA), (startB, endB)),
+      };
+      res;
+    | NA => {ax: NA, staticValue: 0, range: (0, 0)}
+    };
+
+  result;
+};
+
+let findIntersectionPoint =
+    (sectionA: pathSection, sectionB: pathSection): point => {
+  let axisA = getAxis(sectionA);
+  let axisB = getAxis(sectionB);
+  let point =
+    switch (axisA.ax) {
+    | X =>
+      let (x, _) = sectionA.endNode; //  doesn't matter if i use
+      let (_, y) = sectionB.endNode; // start node or end node
+      //  I want the value that does not change.
+      let (x1, y1) = axisA.delta; // delta is y
+      let (x2, y2) = axisB.delta; // delta is x
+
+      let intersectionX = isInbetween(x, (x2, y2)) === 0 ? Some(x) : None;
+      let intersectionY = isInbetween(y, (x1, y1)) === 0 ? Some(y) : None;
+
+      let res =
+        switch (intersectionX, intersectionY) {
+        | (Some(x), Some(y)) => {x, y}
+        | (_, _) => {x: 0, y: 0}
+        };
+      res;
+    | Y =>
+      let (_, y) = sectionA.endNode; //  doesn't matter if i use
+      let (x, _) = sectionB.endNode; // start node or end node
+      //  I want the value that does not change.
+      let (x1, y1) = axisA.delta; // delta is y
+      let (x2, y2) = axisB.delta; // delta is x
+
+      let intersectionX = isInbetween(x, (x2, y2)) === 0 ? Some(x) : None;
+      let intersectionY = isInbetween(y, (x1, y1)) === 0 ? Some(y) : None;
+
+      let res =
+        switch (intersectionX, intersectionY) {
+        | (Some(x), Some(y)) => {x, y}
+        | (_, _) => {x: 0, y: 0}
+        };
+      res;
+    | NA => {x: 0, y: 0}
+    };
+  point;
+};
+
+let getClosestIntersection =
+    (pathA: array((int, int)), pathB: array((int, int))) => {
+  let length = Array.length(pathA) - 1;
+
+  let indexA = ref(0);
+  let indexB = ref(0);
+
+  while (indexA^ < length) {
+    let pathSectionA = {
+      startNode: pathA[indexA^],
+      endNode: pathA[indexA^ + 1],
+    };
+
+    indexB := 0;
+
+    while (indexB^ < length) {
+      let pathSectionB = {
+        startNode: pathB[indexB^],
+        endNode: pathB[indexB^ + 1],
+      };
+
+      // do stuff here.
+
+      indexB := indexB^ + 1;
+    };
+
+    indexA := indexA^ + 1;
+  };
+};
+
+let result = getClosestIntersection(pathA, pathB);
